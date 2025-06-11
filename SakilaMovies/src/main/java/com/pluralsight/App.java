@@ -29,7 +29,7 @@ public class App {
 
 
         try {
-            // Ask for last name and display matches
+            System.out.println("Enter last name to display matches of actors.");
             System.out.print("Enter actor's last name: ");
             String lastName = input.nextLine();
 
@@ -55,15 +55,16 @@ public class App {
                     }
                 }
             }
+            System.out.println("-----------------------------------");
 
-            // Ask for full name to display movies
-            System.out.print("\nEnter actor's first name: ");
+            System.out.println("\nEnter full name to display movies where actor participated.");
+            System.out.print("Enter actor's first name: ");
             String firstName = input.nextLine();
             System.out.print("Enter actor's last name: ");
             String fullLastName = input.nextLine();
 
             String movieQuery = """
-                SELECT film.title
+                SELECT film.title, film.description, film.release_year
                 FROM film
                 JOIN film_actor ON film.film_id = film_actor.film_id
                 JOIN actor ON film_actor.actor_id = actor.actor_id
@@ -79,13 +80,20 @@ public class App {
                 try (ResultSet results = stmt.executeQuery()) {
                     if (results.next()) {
                         System.out.println("\nMovies featuring " + firstName + " " + fullLastName + ":");
+                        System.out.println("Title                          Year           Description");
+                        System.out.println("-------------------------------------------------------------");
                         do {
-                            System.out.println("- " + results.getString("title"));
+                            String title = results.getString("title");
+                            String description = results.getString("description");
+                            String year = results.getString("release_year");
+
+                            System.out.printf("%-30s %-5s     %s%n", title, year, description);
                         } while (results.next());
                     } else {
                         System.out.println("No movies found for " + firstName + " " + fullLastName + ".");
                     }
                 }
+                System.out.println("-------------------------------------------------------------");
             }
 
         } catch (SQLException e) {
