@@ -1,22 +1,20 @@
 package com.pluralsight;
 
+import com.pluralsight.dao.ActorDao;
+import com.pluralsight.models.Actor;
+import com.pluralsight.models.Film;
 import org.apache.commons.dbcp2.BasicDataSource;
-
 import javax.sql.DataSource;
-import java.sql.*;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.Scanner;
 
 public class App {
-    static Scanner input = new Scanner(System.in);
-
     public static void main(String[] args) {
-
         if (args.length != 2) {
-            System.out.println(
-                    "Application needs two arguments to run: " +
-                            "java com.pluralsight.UsingDriverManager <username> <password>"
-            );
-            System.exit(1);}
+            System.out.println("Usage: java SakilaMovies <username> <password>");
+            return;
+        }
 
         String username = args[0];
         String password = args[1];
@@ -26,76 +24,39 @@ public class App {
         dataSource.setUsername(username);
         dataSource.setPassword(password);
 
-
+        ActorDao dataManager = new ActorDao(dataSource);
+        Scanner scanner = new Scanner(System.in);
 
         try {
-            System.out.println("Enter last name to display matches of actors.");
-            System.out.print("Enter actor's last name: ");
-            String lastName = input.nextLine();
+            System.out.print("Enter actor's last name to search: ");
+            String lastName = scanner.nextLine();
+            List<Actor> actors = dataManager.searchActorsByLastName(lastName);
 
-            try (Connection connection = dataSource.getConnection();
-                 PreparedStatement stmt = connection.prepareStatement(
-                         "SELECT actor_id, first_name, last_name FROM actor WHERE last_name = ?"
-                 )) {
-                stmt.setString(1, lastName);
-
-                try (ResultSet results = stmt.executeQuery()) {
-                    if (results.next()) {
-                        System.out.println("\nActors with last name '" + lastName + "':");
-                        System.out.println("ID   First Name       Last Name");
-                        System.out.println("-----------------------------------");
-                        do {
-                            System.out.printf("%-4d %-15s %-15s%n",
-                                    results.getInt("actor_id"),
-                                    results.getString("first_name"),
-                                    results.getString("last_name"));
-                        } while (results.next());
-                    } else {
-                        System.out.println("No actors found with last name '" + lastName + "'.");
-                    }
-                }
-            }
-            System.out.println("-----------------------------------");
-
-            System.out.println("\nEnter full name to display movies where actor participated.");
-            System.out.print("Enter actor's first name: ");
-            String firstName = input.nextLine();
-            System.out.print("Enter actor's last name: ");
-            String fullLastName = input.nextLine();
-
-            String movieQuery = """
-                SELECT film.title, film.description, film.release_year
-                FROM film
-                JOIN film_actor ON film.film_id = film_actor.film_id
-                JOIN actor ON film_actor.actor_id = actor.actor_id
-                WHERE actor.first_name = ? AND actor.last_name = ?
-                ORDER BY film.title;
-                """;
-
-            try (Connection connection = dataSource.getConnection();
-                 PreparedStatement stmt = connection.prepareStatement(movieQuery)) {
-                stmt.setString(1, firstName);
-                stmt.setString(2, fullLastName);
-
-                try (ResultSet results = stmt.executeQuery()) {
-                    if (results.next()) {
-                        System.out.println("\nMovies featuring " + firstName + " " + fullLastName + ":");
-                        System.out.println("Title                          Year           Description");
-                        System.out.println("-------------------------------------------------------------");
-                        do {
-                            String title = results.getString("title");
-                            String description = results.getString("description");
-                            String year = results.getString("release_year");
-
-                            System.out.printf("%-30s %-5s     %s%n", title, year, description);
-                        } while (results.next());
-                    } else {
-                        System.out.println("No movies found for " + firstName + " " + fullLastName + ".");
-                    }
-                }
-                System.out.println("-------------------------------------------------------------");
+            if (actors.isEmpty()) {
+                System.out.println("No actors found with last name: " + lastName);
+                return;
             }
 
+            System.out.println("\nMatching actors:");
+            for (Actor actor : actors) {
+                System.out.printf("%d - %s %s\n", actor.getActorId(), actor.getFirstName(), actor.getLastName());
+            }
+
+            System.out.print("\nEnter actor ID to see their films: ");
+            int actorId = Integer.parseInt(scanner.nextLine());
+
+            List<Film> films = dataManager.getFilmsByActorId(actorId);
+            if (films.isEmpty()) {
+                System.out.println("No films found for this actor.");
+            } else {
+                System.out.println("\nFilms:");
+                System.out.println("Title                          Year    Length  Description");
+                System.out.println("------------------------------------------------------------------");
+                for (Film film : films) {
+                    System.out.printf("%-30s %-7s %-7d %s\n",
+                            film.getTitle(), film.getReleaseYear(), film.getLength(), film.getDescription());
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
